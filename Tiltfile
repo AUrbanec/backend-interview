@@ -16,7 +16,7 @@ docker_build(
     live_update=[
         sync('./backend/app', '/app/app'),
         sync('./backend/pyproject.toml', '/app/pyproject.toml'),
-        run('poetry install --no-dev --no-interaction --no-ansi', trigger=['./backend/pyproject.toml']),
+        run('uv pip install --system .', trigger=['./backend/pyproject.toml']),
     ],
 )
 
