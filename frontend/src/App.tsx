@@ -1,8 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { Container } from '@mui/material'
+import { Container, Box } from '@mui/material'
 import Login from './components/Login'
 import SignUp from './components/SignUp'
 import Dashboard from './components/Dashboard'
+import SimulationDashboard from './components/SimulationDashboard'
 import { useAuthContext } from './auth/hooks'
 
 function App() {
@@ -18,23 +19,27 @@ function App() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Box>
       <Routes>
         <Route
           path="/login"
-          element={authenticated ? <Navigate to="/dashboard" /> : <Login />}
+          element={authenticated ? <Navigate to="/simulations" /> : <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}><Login /></Container>}
         />
         <Route
           path="/signup"
-          element={authenticated ? <Navigate to="/dashboard" /> : <SignUp />}
+          element={authenticated ? <Navigate to="/simulations" /> : <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}><SignUp /></Container>}
         />
         <Route
           path="/dashboard"
           element={authenticated ? <Dashboard /> : <Navigate to="/login" />}
         />
-        <Route path="/" element={<Navigate to={authenticated ? "/dashboard" : "/login"} />} />
+        <Route
+          path="/simulations"
+          element={authenticated ? <SimulationDashboard /> : <Navigate to="/login" />}
+        />
+        <Route path="/" element={<Navigate to={authenticated ? "/simulations" : "/login"} />} />
       </Routes>
-    </Container>
+    </Box>
   )
 }
 

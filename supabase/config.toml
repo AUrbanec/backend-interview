@@ -7,6 +7,8 @@ port = 54321
 schemas = ["public", "storage", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
+# External URL used for JWT issuer claim - must match what clients use
+external_url = "http://127.0.0.1:54321"
 
 [db]
 port = 54322
@@ -31,4 +33,3 @@ enable_confirmations = false
 [storage]
 enabled = true
 file_size_limit = "50MiB"
-

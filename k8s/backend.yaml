@@ -24,6 +24,10 @@ spec:
       labels:
         app: backend
     spec:
+      hostAliases:
+        - ip: "10.255.255.254"
+          hostnames:
+            - "host.docker.internal"
       containers:
       - name: backend
         image: backend:latest

@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { todosApi } from '../../services/api'
 
 export interface Todo {
@@ -7,6 +7,7 @@ export interface Todo {
   title: string
   description?: string
   completed: boolean
+  simulation_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -31,16 +32,16 @@ export const fetchTodos = createAsyncThunk('todos/fetchTodos', async () => {
 
 export const createTodo = createAsyncThunk(
   'todos/createTodo',
-  async ({ title, description }: { title: string; description?: string }) => {
-    const response = await todosApi.createTodo(title, description)
+  async ({ title, description, simulation_id }: { title: string; description?: string; simulation_id?: string }) => {
+    const response = await todosApi.createTodo(title, description, simulation_id)
     return response
   }
 )
 
 export const updateTodo = createAsyncThunk(
   'todos/updateTodo',
-  async ({ id, title, description, completed }: Partial<Todo> & { id: string }) => {
-    const response = await todosApi.updateTodo(id, { title, description, completed })
+  async ({ id, title, description, completed, simulation_id }: Partial<Todo> & { id: string }) => {
+    const response = await todosApi.updateTodo(id, { title, description, completed, simulation_id })
     return response
   }
 )
