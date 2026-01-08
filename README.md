@@ -136,6 +136,74 @@ Tilt automatically reloads services when files change. For manual development:
 - Apply migrations manually: `supabase db reset`
 - Check migration status: `supabase migration list`
 
+## Recent Additions & Changes
+
+### Logging
+
+Comprehensive logging has been added throughout the backend:
+- **Request/Response Middleware**: Logs all incoming requests and response status codes in `main.py`
+- **Per-Route Logging**: Each API endpoint logs key operations, user IDs, and errors with full tracebacks
+- **Configurable Levels**: DEBUG level enabled by default, outputting to stdout
+
+### Simulations API
+
+Full battery simulation system using PyBaMM:
+- `POST /api/simulations/` - Create and start a new battery simulation
+- `GET /api/simulations/` - List all simulations for the current user
+- `GET /api/simulations/{id}` - Get a specific simulation with results
+- `DELETE /api/simulations/{id}` - Delete a simulation
+
+**Features**:
+- Supports multiple battery chemistries: LFP, NMC, NCA, LCO
+- Configurable C-rate, temperature, and cycle count
+- Background task execution with ThreadPoolExecutor
+- Real-time progress tracking and status updates (pending, running, completed, failed)
+- Results include voltage, current, and capacity time series data
+
+### Auth Routes
+
+Authentication endpoints powered by Supabase Auth:
+- `POST /api/auth/signup` - Register new users with email/password
+- `POST /api/auth/signin` - Authenticate existing users
+- `POST /api/auth/signout` - Sign out with token validation
+- `GET /api/auth/me` - Get current user profile
+- `POST /api/auth/refresh` - Refresh access tokens
+
+### Presets API
+
+Parameter presets for saving and reusing simulation configurations:
+- `POST /api/presets/` - Create a new preset
+- `GET /api/presets/` - List user, public, and system presets
+- `GET /api/presets/{id}` - Get a specific preset
+- `PUT /api/presets/{id}` - Update a preset
+- `DELETE /api/presets/{id}` - Delete a preset
+
+**Features**:
+- Public presets shareable between users
+- System presets (no user_id) for default configurations
+- Stores chemistry, C-rate, temperature, cycles, and custom parameters
+
+### Usage Tracking API
+
+Usage monitoring and rate limiting:
+- `GET /api/usage/` - Get current usage statistics
+- `GET /api/usage/logs` - Get API call logs with pagination
+- `GET /api/usage/summary` - Get usage summary with simulation stats
+
+**Features**:
+- Monthly simulation and API call limits
+- Automatic period tracking and reset
+- Usage enforcement on simulation creation
+
+### Database Migrations
+
+New tables and functions added:
+- `simulations` - Stores simulation jobs and results
+- `parameter_presets` - Stores user and system presets
+- `usage_tracking` - Tracks monthly usage limits
+- `api_call_logs` - Logs API calls for auditing
+- `increment_simulation_count` - RPC function for atomic usage updates
+
 ## License
 
 MIT
