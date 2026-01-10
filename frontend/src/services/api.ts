@@ -224,6 +224,88 @@ export const presetsApi = {
   },
 }
 
+// PyBAMM Reference API - Documentation and model options
+export interface PyBAMMModel {
+  name: string
+  class: string
+  description: string
+  complexity: string
+  recommended_use: string
+  variants?: string[]
+}
+
+export interface PyBAMMModelOption {
+  description: string
+  options: (string | number)[]
+  default: string
+  details?: Record<string, string>
+  electrode_specific?: boolean
+}
+
+export interface PyBAMMParameterSet {
+  chemistry: string
+  cell_type: string
+  cell_format?: string
+  reference: string
+}
+
+export interface PyBAMMRecommendation {
+  model: string
+  options: Record<string, string>
+  description: string
+}
+
+export const pybammApi = {
+  // Get all available PyBAMM models (lithium-ion, lead-acid, ECM)
+  getModels: async (): Promise<{
+    lithium_ion: Record<string, PyBAMMModel>
+    lead_acid: Record<string, PyBAMMModel>
+    equivalent_circuit: Record<string, PyBAMMModel>
+  }> => {
+    const response = await apiClient.get('/api/presets/pybamm/models')
+    return response.data
+  },
+
+  // Get all available model options (thermal, SEI, lithium plating, etc.)
+  getModelOptions: async (): Promise<Record<string, PyBAMMModelOption>> => {
+    const response = await apiClient.get('/api/presets/pybamm/options')
+    return response.data
+  },
+
+  // Get all available parameter sets
+  getParameterSets: async (): Promise<Record<string, PyBAMMParameterSet>> => {
+    const response = await apiClient.get('/api/presets/pybamm/parameter-sets')
+    return response.data
+  },
+
+  // Get detailed info about a specific parameter set
+  getParameterSetDetails: async (name: string) => {
+    const response = await apiClient.get(`/api/presets/pybamm/parameter-sets/${name}`)
+    return response.data
+  },
+
+  // Get chemistry-specific defaults and info
+  getChemistryInfo: async (chemistry: string) => {
+    const response = await apiClient.get(`/api/presets/pybamm/chemistry/${chemistry}`)
+    return response.data
+  },
+
+  // Validate model options
+  validateOptions: async (options: Record<string, unknown>): Promise<{
+    valid: boolean
+    errors: string[]
+  }> => {
+    const response = await apiClient.post('/api/presets/pybamm/validate-options', options)
+    return response.data
+  },
+
+  // Get recommended options for a use case
+  getRecommendations: async (useCase: string): Promise<PyBAMMRecommendation> => {
+    const response = await apiClient.get(`/api/presets/pybamm/recommendations/${useCase}`)
+    return response.data
+  },
+}
+
 // Usage API
 export const usageApi = {
   getUsage: async () => {

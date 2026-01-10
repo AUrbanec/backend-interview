@@ -53,6 +53,7 @@ import {
   BatteryChemistry,
   ProtocolType,
   ThermalMode,
+  ModelType,
   CreateSimulationParams,
 } from '../redux/slices/simulationsSlice'
 import { fetchPresets, Preset } from '../redux/slices/presetsSlice'
@@ -61,6 +62,8 @@ import { AppDispatch, RootState } from '../redux/store/store'
 import { useAuthContext } from '../auth/hooks'
 import { usageApi } from '../services/api'
 import SimulationChart from './SimulationChart'
+import PyBAMMReference from './PyBAMMReference'
+import AdvancedModelOptions, { ModelOptions } from './AdvancedModelOptions'
 import {
   List,
   ListItem,
@@ -129,6 +132,10 @@ const SimulationDashboard = () => {
   const [thermalMode, setThermalMode] = useState<ThermalMode>('isothermal')
   const [heatTransferCoeff, setHeatTransferCoeff] = useState<number>(10)
   const [externalCoolingTemp, setExternalCoolingTemp] = useState<number>(25)
+  
+  // Advanced model options state
+  const [modelType, setModelType] = useState<ModelType>('DFN')
+  const [modelOptions, setModelOptions] = useState<ModelOptions>({})
 
   // New todo form state
   const [newTodo, setNewTodo] = useState({
@@ -185,8 +192,25 @@ const SimulationDashboard = () => {
         customParams.thermal_mode = 'isothermal'
       }
       
+      // Add model options to custom_parameters
+      Object.entries(modelOptions).forEach(([key, value]) => {
+        if (value) {
+          customParams[key] = value
+        }
+      })
+      
+      // Filter out undefined values from model options
+      const filteredModelOptions: Record<string, string> = {}
+      Object.entries(modelOptions).forEach(([key, value]) => {
+        if (value !== undefined) {
+          filteredModelOptions[key] = value
+        }
+      })
+      
       await dispatch(createSimulation({
         ...newSim,
+        model_type: modelType,
+        model_options: filteredModelOptions,
         custom_parameters: customParams,
       }))
       
@@ -203,6 +227,8 @@ const SimulationDashboard = () => {
       setThermalMode('isothermal')
       setHeatTransferCoeff(10)
       setExternalCoolingTemp(25)
+      setModelType('DFN')
+      setModelOptions({})
       setOpenDialog(false)
       loadUsage()
     }
@@ -326,6 +352,7 @@ const SimulationDashboard = () => {
           <Tab label="Simulations" icon={<ScienceIcon />} iconPosition="start" />
           <Tab label="Results Viewer" icon={<AssessmentIcon />} iconPosition="start" />
           <Tab label="Tasks" icon={<AssignmentIcon />} iconPosition="start" />
+          <Tab label="PyBAMM Reference" icon={<ScienceIcon />} iconPosition="start" />
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
@@ -563,6 +590,11 @@ const SimulationDashboard = () => {
             </Paper>
           )}
         </TabPanel>
+
+        {/* PyBAMM Reference Tab */}
+        <TabPanel value={tabValue} index={3}>
+          <PyBAMMReference />
+        </TabPanel>
       </Container>
 
       {/* New Simulation Dialog */}
@@ -649,14 +681,15 @@ const SimulationDashboard = () => {
               <Slider
                 value={newSim.c_rate}
                 onChange={(_, v) => setNewSim({ ...newSim, c_rate: v as number })}
-                min={0.1}
-                max={5}
-                step={0.1}
+                min={0.05}
+                max={10}
+                step={0.05}
                 marks={[
-                  { value: 0.5, label: '0.5C' },
+                  { value: 0.05, label: 'C/20' },
                   { value: 1, label: '1C' },
-                  { value: 2, label: '2C' },
+                  { value: 3, label: '3C' },
                   { value: 5, label: '5C' },
+                  { value: 10, label: '10C' },
                 ]}
               />
             </Grid>
@@ -666,10 +699,11 @@ const SimulationDashboard = () => {
               <Slider
                 value={newSim.temperature_celsius}
                 onChange={(_, v) => setNewSim({ ...newSim, temperature_celsius: v as number })}
-                min={-10}
+                min={-20}
                 max={60}
                 step={1}
                 marks={[
+                  { value: -20, label: '-20°C' },
                   { value: 0, label: '0°C' },
                   { value: 25, label: '25°C' },
                   { value: 45, label: '45°C' },
@@ -678,18 +712,18 @@ const SimulationDashboard = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <Typography gutterBottom>Cycles: {newSim.cycles}</Typography>
+              <Typography gutterBottom>Cycles: {newSim.cycles}{newSim.cycles > 50 ? ' (long simulation)' : ''}</Typography>
               <Slider
                 value={newSim.cycles}
                 onChange={(_, v) => setNewSim({ ...newSim, cycles: v as number })}
                 min={1}
-                max={50}
+                max={100}
                 step={1}
                 marks={[
                   { value: 1, label: '1' },
-                  { value: 10, label: '10' },
                   { value: 25, label: '25' },
                   { value: 50, label: '50' },
+                  { value: 100, label: '100' },
                 ]}
               />
             </Grid>
@@ -725,12 +759,13 @@ const SimulationDashboard = () => {
                     value={heatTransferCoeff}
                     onChange={(_, v) => setHeatTransferCoeff(v as number)}
                     min={1}
-                    max={100}
+                    max={200}
                     step={1}
                     marks={[
-                      { value: 5, label: '5 (poor)' },
-                      { value: 25, label: '25' },
-                      { value: 50, label: '50 (good)' },
+                      { value: 10, label: '10 (natural)' },
+                      { value: 50, label: '50 (forced air)' },
+                      { value: 100, label: '100' },
+                      { value: 200, label: '200 (liquid)' },
                     ]}
                   />
                 </Grid>
@@ -753,6 +788,16 @@ const SimulationDashboard = () => {
                 </Grid>
               </>
             )}
+
+            {/* Advanced Model Options */}
+            <Grid item xs={12}>
+              <AdvancedModelOptions
+                modelType={modelType}
+                modelOptions={modelOptions}
+                onModelTypeChange={setModelType}
+                onModelOptionsChange={setModelOptions}
+              />
+            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>

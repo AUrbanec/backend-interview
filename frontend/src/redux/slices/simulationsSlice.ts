@@ -4,6 +4,7 @@ import { simulationsApi } from '../../services/api'
 export type SimulationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type BatteryChemistry = 'LFP' | 'NMC' | 'NCA' | 'LCO' | 'custom'
 export type ProtocolType = 'standard_cycle' | 'capacity_check' | 'rate_capability' | 'drive_cycle' | 'hppc' | 'custom'
+export type ModelType = 'SPM' | 'SPMe' | 'DFN' | 'MPM' | 'NewmanTobias'
 
 export interface StepMetric {
   step_number: number
@@ -100,6 +101,8 @@ export interface Simulation {
   progress: number
   chemistry: BatteryChemistry
   protocol: ProtocolType | null
+  model_type: ModelType | null
+  model_options: Record<string, string> | null
   c_rate: number
   temperature_celsius: number
   cycles: number
@@ -117,6 +120,8 @@ export interface CreateSimulationParams {
   description?: string
   chemistry?: BatteryChemistry
   protocol?: ProtocolType
+  model_type?: ModelType
+  model_options?: Record<string, string>
   c_rate?: number
   temperature_celsius?: number
   cycles?: number
