@@ -148,6 +148,26 @@ export const simulationsApi = {
   cancelSimulation: async (id: string): Promise<void> => {
     await apiClient.post(`/api/simulations/${id}/cancel`)
   },
+
+  compareSimulations: async (simulationIds: string[]) => {
+    const response = await apiClient.post('/api/simulations/compare', {
+      simulation_ids: simulationIds,
+    })
+    return response.data
+  },
+
+  createMultiChemistry: async (params: {
+    name_prefix: string
+    description?: string
+    chemistries: string[]
+    c_rate?: number
+    temperature_celsius?: number
+    cycles?: number
+    custom_parameters?: Record<string, unknown>
+  }) => {
+    const response = await apiClient.post('/api/simulations/multi-chemistry', params)
+    return response.data
+  },
 }
 
 // Presets API

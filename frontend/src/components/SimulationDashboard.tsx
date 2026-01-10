@@ -39,6 +39,7 @@ import {
   Cancel as CancelIcon,
   Science as ScienceIcon,
   Assessment as AssessmentIcon,
+  CompareArrows as CompareArrowsIcon,
 } from '@mui/icons-material'
 import { signOut } from '../redux/slices/authSlice'
 import {
@@ -50,6 +51,8 @@ import {
   Simulation,
   SimulationStatus,
   BatteryChemistry,
+  ProtocolType,
+  ThermalMode,
   CreateSimulationParams,
 } from '../redux/slices/simulationsSlice'
 import { fetchPresets, Preset } from '../redux/slices/presetsSlice'
@@ -104,7 +107,7 @@ const SimulationDashboard = () => {
   const [tabValue, setTabValue] = useState(0)
   const [openDialog, setOpenDialog] = useState(false)
   const [openTodoDialog, setOpenTodoDialog] = useState(false)
-  const [selectedSimulation, setSelectedSimulation] = useState<Simulation | null>(null)
+  const [selectedSimulations, setSelectedSimulations] = useState<Simulation[]>([])
   const [usageData, setUsageData] = useState<{
     simulations_count: number
     simulations_limit: number
@@ -116,10 +119,16 @@ const SimulationDashboard = () => {
     name: '',
     description: '',
     chemistry: 'LFP',
+    protocol: 'standard_cycle',
     c_rate: 1.0,
     temperature_celsius: 25.0,
     cycles: 1,
   })
+  
+  // Thermal settings state
+  const [thermalMode, setThermalMode] = useState<ThermalMode>('isothermal')
+  const [heatTransferCoeff, setHeatTransferCoeff] = useState<number>(10)
+  const [externalCoolingTemp, setExternalCoolingTemp] = useState<number>(25)
 
   // New todo form state
   const [newTodo, setNewTodo] = useState({
@@ -165,15 +174,35 @@ const SimulationDashboard = () => {
 
   const handleCreateSimulation = async () => {
     if (newSim.name.trim()) {
-      await dispatch(createSimulation(newSim))
+      // Build custom_parameters with thermal settings
+      const customParams: Record<string, unknown> = { ...newSim.custom_parameters }
+      
+      if (thermalMode === 'lumped') {
+        customParams.thermal_mode = 'lumped'
+        customParams.heat_transfer_coefficient = heatTransferCoeff
+        customParams.external_cooling_temperature_celsius = externalCoolingTemp
+      } else {
+        customParams.thermal_mode = 'isothermal'
+      }
+      
+      await dispatch(createSimulation({
+        ...newSim,
+        custom_parameters: customParams,
+      }))
+      
+      // Reset form
       setNewSim({
         name: '',
         description: '',
         chemistry: 'LFP',
+        protocol: 'standard_cycle',
         c_rate: 1.0,
         temperature_celsius: 25.0,
         cycles: 1,
       })
+      setThermalMode('isothermal')
+      setHeatTransferCoeff(10)
+      setExternalCoolingTemp(25)
       setOpenDialog(false)
       loadUsage()
     }
@@ -198,9 +227,32 @@ const SimulationDashboard = () => {
   }
 
   const handleViewResults = (simulation: Simulation) => {
-    setSelectedSimulation(simulation)
+    setSelectedSimulations([simulation])
     setTabValue(1)
   }
+
+  const handleToggleSimulationSelection = (simulation: Simulation) => {
+    setSelectedSimulations(prev => {
+      const isSelected = prev.some(s => s.id === simulation.id)
+      if (isSelected) {
+        return prev.filter(s => s.id !== simulation.id)
+      } else {
+        return [...prev, simulation]
+      }
+    })
+  }
+
+  const handleCompareSelected = () => {
+    if (selectedSimulations.length >= 1) {
+      setTabValue(1)
+    }
+  }
+
+  const handleClearSelection = () => {
+    setSelectedSimulations([])
+  }
+
+  const isSimulationSelected = (id: string) => selectedSimulations.some(s => s.id === id)
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-'
@@ -279,12 +331,30 @@ const SimulationDashboard = () => {
         <TabPanel value={tabValue} index={0}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
             <Typography variant="h5">My Simulations</Typography>
-            <Box>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              {selectedSimulations.length > 0 && (
+                <>
+                  <Chip 
+                    label={`${selectedSimulations.length} selected`} 
+                    onDelete={handleClearSelection}
+                    color="primary"
+                    size="small"
+                  />
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    startIcon={<CompareArrowsIcon />}
+                    onClick={handleCompareSelected}
+                    disabled={!selectedSimulations.some(s => s.results)}
+                  >
+                    Compare
+                  </Button>
+                </>
+              )}
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
                 onClick={() => dispatch(fetchSimulations())}
-                sx={{ mr: 1 }}
               >
                 Refresh
               </Button>
@@ -313,12 +383,27 @@ const SimulationDashboard = () => {
               ) : (
                 simulations.map((sim) => (
                   <Grid item xs={12} md={6} lg={4} key={sim.id}>
-                    <Card>
+                    <Card 
+                      sx={{ 
+                        border: isSimulationSelected(sim.id) ? '2px solid' : 'none',
+                        borderColor: 'primary.main',
+                      }}
+                    >
                       <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="h6" noWrap sx={{ maxWidth: '70%' }}>
-                            {sim.name}
-                          </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, maxWidth: '70%' }}>
+                            {sim.status === 'completed' && sim.results && (
+                              <Checkbox
+                                checked={isSimulationSelected(sim.id)}
+                                onChange={() => handleToggleSimulationSelection(sim)}
+                                size="small"
+                                sx={{ p: 0 }}
+                              />
+                            )}
+                            <Typography variant="h6" noWrap>
+                              {sim.name}
+                            </Typography>
+                          </Box>
                           <Chip
                             label={sim.status}
                             color={statusColors[sim.status]}
@@ -394,11 +479,11 @@ const SimulationDashboard = () => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          {selectedSimulation?.results ? (
-            <SimulationChart simulation={selectedSimulation} />
+          {selectedSimulations.length > 0 && selectedSimulations.some(s => s.results) ? (
+            <SimulationChart simulations={selectedSimulations} />
           ) : (
             <Alert severity="info">
-              Select a completed simulation from the Simulations tab to view results.
+              Select one or more completed simulations from the Simulations tab to view and compare results.
             </Alert>
           )}
         </TabPanel>
@@ -445,7 +530,7 @@ const SimulationDashboard = () => {
                                 onClick={() => {
                                   const sim = simulations.find(s => s.id === todo.simulation_id)
                                   if (sim) {
-                                    setSelectedSimulation(sim)
+                                    setSelectedSimulations([sim])
                                     setTabValue(1)
                                   }
                                 }}
@@ -540,6 +625,26 @@ const SimulationDashboard = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Test Protocol</InputLabel>
+                <Select
+                  value={newSim.protocol || 'standard_cycle'}
+                  label="Test Protocol"
+                  onChange={(e) => setNewSim({ 
+                    ...newSim, 
+                    protocol: e.target.value as ProtocolType
+                  })}
+                >
+                  <MenuItem value="standard_cycle">Standard Cycle (CCCV + CC)</MenuItem>
+                  <MenuItem value="capacity_check">Capacity Check (C/20 discharge)</MenuItem>
+                  <MenuItem value="rate_capability">Rate Capability (multi C-rate)</MenuItem>
+                  <MenuItem value="drive_cycle">Drive Cycle (variable current)</MenuItem>
+                  <MenuItem value="hppc">HPPC (Pulse Power)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
               <Typography gutterBottom>C-Rate: {newSim.c_rate}C</Typography>
               <Slider
                 value={newSim.c_rate}
@@ -588,6 +693,66 @@ const SimulationDashboard = () => {
                 ]}
               />
             </Grid>
+
+            {/* Thermal Settings Section */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+                Thermal Model Settings
+              </Typography>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Thermal Mode</InputLabel>
+                <Select
+                  value={thermalMode}
+                  label="Thermal Mode"
+                  onChange={(e) => setThermalMode(e.target.value as ThermalMode)}
+                >
+                  <MenuItem value="isothermal">Isothermal (constant temp)</MenuItem>
+                  <MenuItem value="lumped">Lumped Thermal (dynamic temp)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {thermalMode === 'lumped' && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <Typography gutterBottom>
+                    Heat Transfer Coefficient: {heatTransferCoeff} W/m²K
+                  </Typography>
+                  <Slider
+                    value={heatTransferCoeff}
+                    onChange={(_, v) => setHeatTransferCoeff(v as number)}
+                    min={1}
+                    max={100}
+                    step={1}
+                    marks={[
+                      { value: 5, label: '5 (poor)' },
+                      { value: 25, label: '25' },
+                      { value: 50, label: '50 (good)' },
+                    ]}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography gutterBottom>
+                    External Cooling Temp: {externalCoolingTemp}°C
+                  </Typography>
+                  <Slider
+                    value={externalCoolingTemp}
+                    onChange={(_, v) => setExternalCoolingTemp(v as number)}
+                    min={-10}
+                    max={50}
+                    step={1}
+                    marks={[
+                      { value: 0, label: '0°C' },
+                      { value: 25, label: '25°C' },
+                      { value: 40, label: '40°C' },
+                    ]}
+                  />
+                </Grid>
+              </>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>

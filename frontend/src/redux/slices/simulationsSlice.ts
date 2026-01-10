@@ -3,12 +3,57 @@ import { simulationsApi } from '../../services/api'
 
 export type SimulationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type BatteryChemistry = 'LFP' | 'NMC' | 'NCA' | 'LCO' | 'custom'
+export type ProtocolType = 'standard_cycle' | 'capacity_check' | 'rate_capability' | 'drive_cycle' | 'hppc' | 'custom'
+
+export interface StepMetric {
+  step_number: number
+  start_index: number
+  end_index: number
+  duration_seconds: number
+  average_current_a: number
+  start_voltage_v: number | null
+  end_voltage_v: number | null
+  delivered_ah: number
+  delivered_wh: number
+}
+
+export type ThermalMode = 'isothermal' | 'lumped'
+
+export interface SafetyEvent {
+  type: string
+  message: string
+  severity: 'warning' | 'critical'
+}
+
+export interface ThermalThresholds {
+  max_temp_warning_celsius: number
+  max_temp_critical_celsius: number
+  min_temp_warning_celsius: number
+  min_temp_critical_celsius: number
+}
 
 export interface SimulationResults {
   time_seconds: number[]
   voltage_v: number[]
   current_a: number[]
   discharge_capacity_ah?: number[]
+  soc?: number[]
+  temperature_celsius?: number[]
+  power_w?: number[]
+  heat_generation_w_m3?: number[]
+  positive_electrode_potential_v?: number[]
+  negative_electrode_potential_v?: number[]
+  protocol?: {
+    protocol_type: ProtocolType
+    voltage_limits: {
+      lower_voltage_cutoff: number
+      upper_voltage_cutoff: number
+      nominal_voltage: number
+    }
+    cycles: number
+  }
+  step_boundaries?: { start_index: number; end_index: number }[]
+  step_metrics?: StepMetric[]
   summary: {
     max_voltage: number
     min_voltage: number
@@ -18,6 +63,31 @@ export interface SimulationResults {
     temperature_celsius: number
     cycles: number
     total_capacity_ah?: number
+    protocol_type?: ProtocolType
+    num_steps?: number
+    total_delivered_ah?: number
+    total_delivered_wh?: number
+    initial_soc?: number
+    final_soc?: number
+    max_temperature_celsius?: number
+    min_temperature_celsius?: number
+    avg_temperature_celsius?: number
+    max_power_w?: number
+    min_power_w?: number
+    avg_power_w?: number
+    // Thermal safety fields
+    thermal_mode?: ThermalMode
+    time_above_warning_seconds?: number
+    time_above_critical_seconds?: number
+    time_below_cold_warning_seconds?: number
+    time_below_cold_critical_seconds?: number
+    max_heat_generation_w_m3?: number
+    avg_heat_generation_w_m3?: number
+    // Safety flags
+    max_temp_exceeded?: boolean
+    voltage_violation?: boolean
+    safety_events?: SafetyEvent[]
+    thermal_thresholds?: ThermalThresholds
   }
 }
 
@@ -29,6 +99,7 @@ export interface Simulation {
   status: SimulationStatus
   progress: number
   chemistry: BatteryChemistry
+  protocol: ProtocolType | null
   c_rate: number
   temperature_celsius: number
   cycles: number
@@ -45,6 +116,7 @@ export interface CreateSimulationParams {
   name: string
   description?: string
   chemistry?: BatteryChemistry
+  protocol?: ProtocolType
   c_rate?: number
   temperature_celsius?: number
   cycles?: number
