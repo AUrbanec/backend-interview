@@ -388,25 +388,41 @@ PYBAMM_MODEL_OPTIONS = {
 # Reference: https://docs.pybamm.org/en/stable/source/api/parameters/parameter_sets.html
 # =============================================================================
 PARAMETER_SETS = {
-    # LFP chemistries
+    # =========================================================================
+    # LFP CHEMISTRIES
+    # =========================================================================
     "Prada2013": {
         "chemistry": "LFP",
         "description": "LFP/Graphite parameters from Prada et al. 2013",
         "cell_type": "cylindrical",
         "reference": "Prada et al., Journal of The Electrochemical Society, 160(4), A542-A554 (2013)",
     },
-    # NMC chemistries
+    # =========================================================================
+    # NMC CHEMISTRIES
+    # =========================================================================
     "Chen2020": {
         "chemistry": "NMC",
         "description": "NMC/Graphite parameters for LG M50 cell from Chen et al. 2020",
         "cell_type": "cylindrical 21700",
         "reference": "Chen et al., Journal of The Electrochemical Society, 167(8), 080534 (2020)",
     },
+    "Chen2020_composite": {
+        "chemistry": "NMC",
+        "description": "NMC with silicon/graphite composite negative electrode",
+        "cell_type": "cylindrical 21700",
+        "reference": "Ai et al., Journal of Power Sources, 527, 231142 (2022)",
+    },
     "ORegan2022": {
         "chemistry": "NMC",
         "description": "NMC/Graphite parameters for LG M50 from O'Regan et al. 2022",
         "cell_type": "cylindrical 21700",
         "reference": "O'Regan et al., Electrochimica Acta, 425, 140700 (2022)",
+    },
+    "OKane2022": {
+        "chemistry": "NMC",
+        "description": "Degradation-focused parameters for LG M50 from O'Kane et al. 2022",
+        "cell_type": "cylindrical 21700",
+        "reference": "O'Kane et al., Phys. Chem. Chem. Phys., 24, 7909-7922 (2022)",
     },
     "Mohtat2020": {
         "chemistry": "NMC",
@@ -420,14 +436,24 @@ PARAMETER_SETS = {
         "cell_type": "pouch",
         "reference": "Ai et al., Journal of The Electrochemical Society, 167(1), 013512 (2020)",
     },
-    # NCA chemistries
+    "MSMR_Example": {
+        "chemistry": "NMC",
+        "description": "Multi-Species Multi-Reaction model example parameters (NMC622)",
+        "cell_type": "cylindrical 21700",
+        "reference": "Verbrugge et al., Journal of The Electrochemical Society, 164(11), A3243-A3253 (2017)",
+    },
+    # =========================================================================
+    # NCA CHEMISTRIES
+    # =========================================================================
     "NCA_Kim2011": {
         "chemistry": "NCA",
         "description": "NCA/Graphite parameters from Kim et al. 2011",
         "cell_type": "cylindrical",
         "reference": "Kim et al., Journal of The Electrochemical Society, 158(8), A955-A969 (2011)",
     },
-    # LCO chemistries
+    # =========================================================================
+    # LCO CHEMISTRIES
+    # =========================================================================
     "Marquis2019": {
         "chemistry": "LCO",
         "description": "LCO/Graphite parameters from Marquis et al. 2019",
@@ -436,22 +462,54 @@ PARAMETER_SETS = {
     },
     "Ecker2015": {
         "chemistry": "LCO",
-        "description": "Kokam SLPB78205130H parameters from Ecker et al. 2015",
+        "description": "Kokam SLPB 75106100 parameters from Ecker et al. 2015",
         "cell_type": "pouch",
         "reference": "Ecker et al., Journal of The Electrochemical Society, 162(9), A1836-A1848 (2015)",
-    },
-    # Other/General
-    "Xu2019": {
-        "chemistry": "NMC",
-        "description": "Parameters for degradation modeling from Xu et al. 2019",
-        "cell_type": "general",
-        "reference": "Xu et al., Journal of The Electrochemical Society, 166(14), A3456-A3463 (2019)",
     },
     "Ramadass2004": {
         "chemistry": "LCO",
         "description": "Sony 18650 parameters from Ramadass et al. 2004",
         "cell_type": "cylindrical 18650",
         "reference": "Ramadass et al., Journal of The Electrochemical Society, 151(2), A196-A203 (2004)",
+    },
+    "Xu2019": {
+        "chemistry": "LCO",
+        "description": "Half-cell degradation parameters from Xu et al. 2019",
+        "cell_type": "half-cell",
+        "reference": "Xu et al., Journal of The Electrochemical Society, 166(14), A3456-A3463 (2019)",
+    },
+    # =========================================================================
+    # HALF-CELL PARAMETER SETS
+    # =========================================================================
+    "Ecker2015_graphite_halfcell": {
+        "chemistry": "LCO",
+        "description": "Graphite half-cell parameters from Ecker et al. 2015",
+        "cell_type": "half-cell",
+        "reference": "Ecker et al., Journal of The Electrochemical Society, 162(9), A1836-A1848 (2015)",
+    },
+    "OKane2022_graphite_SiOx_halfcell": {
+        "chemistry": "NMC",
+        "description": "Graphite+SiOx half-cell parameters from O'Kane et al. 2022",
+        "cell_type": "half-cell",
+        "reference": "O'Kane et al., Phys. Chem. Chem. Phys., 24, 7909-7922 (2022)",
+    },
+    # =========================================================================
+    # SODIUM-ION CHEMISTRIES
+    # =========================================================================
+    "Chayambuka2022": {
+        "chemistry": "SODIUM_ION",
+        "description": "Sodium-ion (NVPF/hard carbon) parameters from Chayambuka et al. 2022",
+        "cell_type": "general",
+        "reference": "Chayambuka et al., Electrochimica Acta, 404, 139764 (2022)",
+    },
+    # =========================================================================
+    # LEAD-ACID CHEMISTRIES
+    # =========================================================================
+    "Sulzer2019": {
+        "chemistry": "LEAD_ACID",
+        "description": "Lead-acid BBOXX cell parameters from Sulzer et al. 2019",
+        "cell_type": "flooded",
+        "reference": "Sulzer et al., Journal of The Electrochemical Society, 166(12), A2372-A2382 (2019)",
     },
 }
 
