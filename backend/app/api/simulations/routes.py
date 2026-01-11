@@ -14,6 +14,8 @@ from .schemas import (
     SimulationStatus,
     BatteryChemistry,
     ProtocolType,
+    ExperimentMode,
+    ExperimentDefinition,
     SimulationCreate,
     SimulationResponse,
     CompareSimulationsRequest,
@@ -83,6 +85,22 @@ async def create_simulation(
                 logger.warning(f"User {user_id} has exceeded simulation limit")
                 raise HTTPException(status_code=429, detail="Monthly simulation limit exceeded")
         
+        # Prepare experiment definition for storage (convert to dict if provided)
+        experiment_def_dict = None
+        if simulation.experiment_definition:
+            experiment_def_dict = simulation.experiment_definition.model_dump()
+        
+        # Fetch experiment template if using template mode
+        experiment_template = None
+        if simulation.experiment_mode == ExperimentMode.TEMPLATE and simulation.experiment_template_id:
+            template_response = supabase.table("experiment_templates").select("*").eq(
+                "id", simulation.experiment_template_id
+            ).execute()
+            if template_response.data:
+                experiment_template = template_response.data[0]
+            else:
+                raise HTTPException(status_code=404, detail="Experiment template not found")
+        
         # Create simulation record
         response = supabase.table("simulations").insert({
             "user_id": user_id,
@@ -94,6 +112,10 @@ async def create_simulation(
             "temperature_celsius": simulation.temperature_celsius,
             "cycles": simulation.cycles,
             "custom_parameters": simulation.custom_parameters or {},
+            "experiment_mode": simulation.experiment_mode.value,
+            "experiment_definition": experiment_def_dict,
+            "experiment_template_id": simulation.experiment_template_id,
+            "experiment_period": simulation.experiment_period,
             "status": SimulationStatus.PENDING.value,
             "progress": 0
         }).execute()
@@ -104,7 +126,7 @@ async def create_simulation(
         sim_data = response.data[0]
         simulation_id = sim_data["id"]
         
-        logger.info(f"Created simulation {simulation_id}, starting background task")
+        logger.info(f"Created simulation {simulation_id} (mode: {simulation.experiment_mode.value}), starting background task")
         
         # Start background simulation task
         background_tasks.add_task(
@@ -116,7 +138,10 @@ async def create_simulation(
             simulation.c_rate,
             simulation.temperature_celsius,
             simulation.cycles,
-            simulation.custom_parameters
+            simulation.custom_parameters,
+            simulation.experiment_mode,
+            simulation.experiment_definition,
+            experiment_template
         )
         
         return sim_data

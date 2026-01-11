@@ -2,9 +2,12 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { simulationsApi } from '../../services/api'
 
 export type SimulationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
-export type BatteryChemistry = 'LFP' | 'NMC' | 'NCA' | 'LCO' | 'custom'
+export type BatteryChemistry = 'LFP' | 'NMC' | 'NCA' | 'LCO' | 'SODIUM_ION' | 'LEAD_ACID' | 'custom'
+export type ParameterSet = 'Chen2020' | 'ORegan2022' | 'Ai2020' | 'Mohtat2020' | 'Prada2013' | 'NCA_Kim2011' | 'Marquis2019' | 'Ecker2015' | 'Ramadass2004' | 'Xu2019' | 'Chayambuka2022' | 'custom'
 export type ProtocolType = 'standard_cycle' | 'capacity_check' | 'rate_capability' | 'drive_cycle' | 'hppc' | 'custom'
 export type ModelType = 'SPM' | 'SPMe' | 'DFN' | 'MPM' | 'NewmanTobias'
+export type ExperimentMode = 'protocol' | 'custom' | 'template'
+export type StepType = 'current' | 'c_rate' | 'voltage' | 'power' | 'resistance' | 'rest' | 'string'
 
 export interface StepMetric {
   step_number: number
@@ -19,6 +22,33 @@ export interface StepMetric {
 }
 
 export type ThermalMode = 'isothermal' | 'lumped'
+
+// Experiment step and cycle types
+export interface ExperimentStep {
+  step_type: StepType
+  value?: number
+  value_unit?: string
+  duration?: string
+  termination?: string
+  period?: string
+  temperature?: string
+  tags?: string[]
+  direction?: 'charge' | 'discharge'
+  step_string?: string
+  drive_cycle_data?: number[][]
+  drive_cycle_type?: 'current' | 'power' | 'voltage'
+}
+
+export interface ExperimentCycle {
+  steps: ExperimentStep[]
+  repeat: number
+}
+
+export interface ExperimentDefinition {
+  cycles: ExperimentCycle[]
+  default_period?: string
+  default_temperature_celsius?: number
+}
 
 export interface SafetyEvent {
   type: string
@@ -99,14 +129,25 @@ export interface Simulation {
   description: string | null
   status: SimulationStatus
   progress: number
+  // Cell & Model
+  parameter_set: ParameterSet | null
   chemistry: BatteryChemistry
-  protocol: ProtocolType | null
   model_type: ModelType | null
   model_options: Record<string, string> | null
+  // Experiment
+  protocol: ProtocolType | null
   c_rate: number
   temperature_celsius: number
   cycles: number
+  experiment_mode: ExperimentMode | null
+  experiment_definition: ExperimentDefinition | null
+  experiment_template_id: string | null
+  experiment_period: string | null
+  // Additional
   custom_parameters: Record<string, unknown> | null
+  also_run_with_model: ModelType | null
+  comparison_simulation_id: string | null
+  // Results and status
   results: SimulationResults | null
   error_message: string | null
   started_at: string | null
@@ -118,14 +159,23 @@ export interface Simulation {
 export interface CreateSimulationParams {
   name: string
   description?: string
+  // Cell & Model
+  parameter_set?: ParameterSet | string
   chemistry?: BatteryChemistry
-  protocol?: ProtocolType
   model_type?: ModelType
   model_options?: Record<string, string>
+  // Experiment
+  protocol?: ProtocolType
   c_rate?: number
   temperature_celsius?: number
   cycles?: number
+  experiment_mode?: ExperimentMode
+  experiment_definition?: ExperimentDefinition
+  experiment_template_id?: string
+  experiment_period?: string
+  // Additional
   custom_parameters?: Record<string, unknown>
+  also_run_with_model?: ModelType
 }
 
 interface SimulationsState {

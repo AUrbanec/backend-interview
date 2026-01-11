@@ -16,9 +16,13 @@ import pybamm
 
 from app.supabase_client import get_supabase_admin_client
 
-from .schemas import BatteryChemistry, ProtocolType, ThermalMode, SimulationStatus
+from .schemas import (
+    BatteryChemistry, ProtocolType, ThermalMode, SimulationStatus,
+    ExperimentMode, ExperimentDefinition
+)
 from .constants import get_voltage_limits, get_thermal_thresholds
 from .protocols import build_experiment_steps, estimate_step_count
+from .experiment_builder import get_experiment_steps, build_experiment_from_definition
 from .pybamm_models import get_pybamm_model, apply_simulation_parameters
 from .results import extract_simulation_results
 
@@ -102,13 +106,16 @@ def run_pybamm_simulation(
     c_rate: float,
     temperature_celsius: float,
     cycles: int,
-    custom_parameters: Optional[dict] = None
+    custom_parameters: Optional[dict] = None,
+    experiment_mode: ExperimentMode = ExperimentMode.PROTOCOL,
+    experiment_definition: Optional[ExperimentDefinition] = None,
+    experiment_template: Optional[dict] = None
 ) -> dict:
     """
     Run a PyBaMM simulation synchronously (to be run in thread pool).
     
     Always uses PyBaMM Experiment for unified behavior.
-    Accepts protocol type directly from database column.
+    Supports three experiment modes: protocol, custom, and template.
     Returns step segmentation and per-step metrics.
     
     Args:
@@ -206,19 +213,22 @@ def run_pybamm_simulation(
         logger.info(f"[SIM:{simulation_id}] Voltage limits: {voltage_limits}")
         logger.info(f"[SIM:{simulation_id}] Thermal thresholds: {thermal_thresholds}")
         
-        # Stage 5: Build experiment steps
+        # Stage 5: Build experiment steps based on experiment_mode
         current_stage = "build_experiment"
-        log_simulation_context(simulation_id, current_stage)
+        log_simulation_context(simulation_id, current_stage, experiment_mode=experiment_mode.value)
         
         try:
-            experiment_steps = build_experiment_steps(
-                protocol_type=protocol,
+            experiment_steps = get_experiment_steps(
+                experiment_mode=experiment_mode,
+                protocol_type=protocol.value,
+                experiment_definition=experiment_definition,
+                experiment_template=experiment_template,
                 c_rate=c_rate,
                 cycles=cycles,
                 voltage_limits=voltage_limits,
                 custom_parameters=custom_parameters
             )
-            logger.info(f"[SIM:{simulation_id}] Built {len(experiment_steps)} experiment step groups")
+            logger.info(f"[SIM:{simulation_id}] Built {len(experiment_steps)} experiment step groups (mode: {experiment_mode.value})")
             
             # Log first few steps for debugging
             for i, step_group in enumerate(experiment_steps[:3]):
@@ -227,7 +237,7 @@ def run_pybamm_simulation(
             raise SimulationError(
                 f"Failed to build experiment steps: {str(e)}",
                 stage=current_stage,
-                context={**sim_context, "error_type": type(e).__name__}
+                context={**sim_context, "experiment_mode": experiment_mode.value, "error_type": type(e).__name__}
             )
         
         # Stage 6: Create PyBaMM experiment and simulation
@@ -342,10 +352,18 @@ async def run_simulation_task(
     c_rate: float,
     temperature_celsius: float,
     cycles: int,
-    custom_parameters: Optional[dict] = None
+    custom_parameters: Optional[dict] = None,
+    experiment_mode: ExperimentMode = ExperimentMode.PROTOCOL,
+    experiment_definition: Optional[ExperimentDefinition] = None,
+    experiment_template: Optional[dict] = None
 ):
     """
     Background task to run simulation and update database.
+    
+    Supports three experiment modes:
+    - PROTOCOL: Use predefined protocol_type
+    - CUSTOM: Use custom experiment_definition
+    - TEMPLATE: Use experiment_template
     
     Progress stages:
     - 5%: Initializing model and parameters
@@ -367,7 +385,8 @@ async def run_simulation_task(
         "c_rate": c_rate,
         "temperature_celsius": temperature_celsius,
         "cycles": cycles,
-        "custom_parameters": custom_parameters
+        "custom_parameters": custom_parameters,
+        "experiment_mode": experiment_mode.value
     }
     
     logger.info(f"[TASK:{simulation_id}] Background task started")
@@ -445,18 +464,23 @@ async def run_simulation_task(
         loop = asyncio.get_event_loop()
         
         try:
+            # Use functools.partial to pass all arguments including experiment mode
+            from functools import partial
+            simulation_func = partial(
+                run_pybamm_simulation,
+                simulation_id=simulation_id,
+                chemistry=chemistry,
+                protocol=protocol,
+                c_rate=c_rate,
+                temperature_celsius=temperature_celsius,
+                cycles=cycles,
+                custom_parameters=custom_parameters,
+                experiment_mode=experiment_mode,
+                experiment_definition=experiment_definition,
+                experiment_template=experiment_template
+            )
             results = await asyncio.wait_for(
-                loop.run_in_executor(
-                    simulation_executor,
-                    run_pybamm_simulation,
-                    simulation_id,
-                    chemistry,
-                    protocol,
-                    c_rate,
-                    temperature_celsius,
-                    cycles,
-                    custom_parameters
-                ),
+                loop.run_in_executor(simulation_executor, simulation_func),
                 timeout=timeout_seconds
             )
         except asyncio.TimeoutError:

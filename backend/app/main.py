@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import todos, auth, usage
 from app.api.simulations import router as simulations_router
 from app.api.presets import router as presets_router
+from app.api.experiments import router as experiments_router
 
 # Configure logging
 logging.basicConfig(
@@ -35,6 +36,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(todos.router, prefix="/api/todos", tags=["todos"])
 app.include_router(simulations_router, prefix="/api/simulations", tags=["simulations"])
 app.include_router(presets_router, prefix="/api/presets", tags=["presets"])
+app.include_router(experiments_router, prefix="/api", tags=["experiments"])
 app.include_router(usage.router, prefix="/api/usage", tags=["usage"])
 
 
