@@ -1,62 +1,36 @@
+"""
+FastAPI route handlers for presets API.
+"""
 import logging
 import jwt
 from datetime import datetime
 from typing import Optional, List
-from enum import Enum
 
 from fastapi import APIRouter, Depends, HTTPException, Header
-from pydantic import BaseModel, Field
 
 from app.supabase_client import get_supabase_client_with_token, settings
+
+from .schemas import (
+    BatteryChemistry,
+    PresetCreate,
+    PresetUpdate,
+    PresetResponse,
+)
+from .pybamm_options import (
+    get_model_options_schema,
+    validate_model_options,
+    get_recommended_options_for_use_case,
+)
+from .parameter_sets import (
+    get_parameter_set_info,
+    get_parameter_sets_for_chemistry,
+    get_chemistry_defaults,
+    list_all_parameter_sets,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-class BatteryChemistry(str, Enum):
-    LFP = "LFP"
-    NMC = "NMC"
-    NCA = "NCA"
-    LCO = "LCO"
-    CUSTOM = "custom"
-
-
-class PresetCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    is_public: bool = False
-    chemistry: BatteryChemistry = BatteryChemistry.LFP
-    c_rate: float = Field(default=1.0, ge=0.1, le=10.0)
-    temperature_celsius: float = Field(default=25.0, ge=-20.0, le=60.0)
-    cycles: int = Field(default=1, ge=1, le=100)
-    custom_parameters: Optional[dict] = None
-
-
-class PresetUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    is_public: Optional[bool] = None
-    chemistry: Optional[BatteryChemistry] = None
-    c_rate: Optional[float] = Field(default=None, ge=0.1, le=10.0)
-    temperature_celsius: Optional[float] = Field(default=None, ge=-20.0, le=60.0)
-    cycles: Optional[int] = Field(default=None, ge=1, le=100)
-    custom_parameters: Optional[dict] = None
-
-
-class PresetResponse(BaseModel):
-    id: str
-    user_id: Optional[str]
-    name: str
-    description: Optional[str]
-    is_public: bool
-    chemistry: BatteryChemistry
-    c_rate: float
-    temperature_celsius: float
-    cycles: int
-    custom_parameters: Optional[dict]
-    created_at: datetime
-    updated_at: datetime
 
 
 async def get_user_id(authorization: str = Header(None)) -> str:
@@ -90,6 +64,10 @@ async def get_user_id(authorization: str = Header(None)) -> str:
     except jwt.InvalidTokenError as e:
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
+
+# =============================================================================
+# PRESET CRUD ENDPOINTS
+# =============================================================================
 
 @router.post("/", response_model=PresetResponse)
 async def create_preset(
@@ -358,3 +336,114 @@ async def duplicate_preset(
     except Exception as e:
         logger.error(f"POST /presets/{preset_id}/duplicate - Exception: {type(e).__name__}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# =============================================================================
+# PYBAMM OPTIONS REFERENCE ENDPOINTS
+# =============================================================================
+
+@router.get("/pybamm/models")
+async def get_pybamm_models():
+    """
+    Get all available PyBAMM models and their descriptions.
+    
+    Returns comprehensive information about:
+    - Lithium-ion models (SPM, SPMe, DFN, MPM, etc.)
+    - Lead-acid models
+    - Equivalent circuit models
+    """
+    schema = get_model_options_schema()
+    return {
+        "lithium_ion": schema["lithium_ion_models"],
+        "lead_acid": schema["lead_acid_models"],
+        "equivalent_circuit": schema["equivalent_circuit_models"],
+    }
+
+
+@router.get("/pybamm/options")
+async def get_pybamm_options():
+    """
+    Get all available PyBAMM model options (submodels).
+    
+    Returns comprehensive information about configurable options like:
+    - thermal (isothermal, lumped, x-lumped, x-full)
+    - SEI (none, constant, reaction limited, etc.)
+    - lithium_plating (none, reversible, irreversible)
+    - particle (Fickian diffusion, uniform profile, etc.)
+    - And many more...
+    """
+    schema = get_model_options_schema()
+    return schema["model_options"]
+
+
+@router.get("/pybamm/parameter-sets")
+async def get_pybamm_parameter_sets():
+    """
+    Get all available PyBAMM parameter sets.
+    
+    Returns information about validated parameter sets for different chemistries.
+    """
+    return list_all_parameter_sets()
+
+
+@router.get("/pybamm/parameter-sets/{name}")
+async def get_parameter_set_details(name: str):
+    """
+    Get detailed information about a specific parameter set.
+    """
+    info = get_parameter_set_info(name)
+    if not info:
+        raise HTTPException(status_code=404, detail=f"Parameter set '{name}' not found")
+    return info
+
+
+@router.get("/pybamm/chemistry/{chemistry}")
+async def get_chemistry_info(chemistry: str):
+    """
+    Get default parameters and recommended settings for a chemistry.
+    """
+    defaults = get_chemistry_defaults(chemistry.upper())
+    if not defaults:
+        raise HTTPException(status_code=404, detail=f"Chemistry '{chemistry}' not found")
+    
+    parameter_sets = get_parameter_sets_for_chemistry(chemistry.upper())
+    
+    return {
+        **defaults,
+        "available_parameter_sets": parameter_sets,
+    }
+
+
+@router.post("/pybamm/validate-options")
+async def validate_options(options: dict):
+    """
+    Validate a dictionary of model options against available PyBAMM options.
+    
+    Returns validation errors if any options are invalid.
+    """
+    errors = validate_model_options(options)
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+    }
+
+
+@router.get("/pybamm/recommendations/{use_case}")
+async def get_recommendations(use_case: str):
+    """
+    Get recommended model options for a use case.
+    
+    Available use cases:
+    - fast: Quick screening simulations
+    - accurate: High-fidelity simulations
+    - thermal: Thermal analysis
+    - degradation: Degradation modeling
+    - optimization: Parameter optimization
+    """
+    recommendations = get_recommended_options_for_use_case(use_case.lower())
+    if not recommendations:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Unknown use case '{use_case}'. Available: fast, accurate, thermal, degradation, optimization"
+        )
+    return recommendations
